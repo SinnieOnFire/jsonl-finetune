@@ -14,13 +14,8 @@ def process_localization_files(input_folder, output_jsonl):
         print(f"Error: The input folder '{input_folder_path}' does not exist.")
         return
 
-    # List all files in the input folder
-    files = [f for f in os.listdir(input_folder_path) if f.endswith('.json')]
-
-    # Check if there are JSON files in the input folder
-    if not files:
-        print(f"Error: No JSON files found in the input folder '{input_folder_path}'.")
-        return
+    # Initialize a list to store dictionaries representing jsonl entries
+    jsonl_entries = []
 
     # Language code to human-readable name mapping
     language_mapping = {
@@ -40,41 +35,41 @@ def process_localization_files(input_folder, output_jsonl):
         'fa': 'Persian'
     }
 
-    # Initialize a list to store dictionaries representing jsonl entries
-    jsonl_entries = []
+    # Process each en.json file in the input folder and its subfolders
+    for root, _, files in os.walk(input_folder_path):
+        for file in files:
+            if file == 'en.json':
+                source_file_path = os.path.join(root, file)
 
-    # Load the source localization file (en.json)
-    source_file_path = os.path.join(input_folder_path, 'en.json')
-    with open(source_file_path, 'r', encoding='utf-8') as source_file:
-        try:
-            source_data = json.load(source_file)
-        except json.JSONDecodeError:
-            print(f"Error: Unable to parse JSON file '{source_file_path}'. Exiting.")
-            return
+                # Load the source localization file (en.json)
+                with open(source_file_path, 'r', encoding='utf-8') as source_file:
+                    try:
+                        source_data = json.load(source_file)
+                    except json.JSONDecodeError:
+                        print(f"Error: Unable to parse JSON file '{source_file_path}'. Skipping.")
+                        continue
 
-    # Process each localization file
-    for file in files:
-        if file == 'en.json':
-            continue  # Skip the source file itself
+                    # Process each localization file
+                    for target_file in files:
+                        if target_file.endswith('.json') and target_file != 'en.json':
+                            target_language = os.path.splitext(target_file)[0]  # Extract language from the file name
+                            target_file_path = os.path.join(root, target_file)
 
-        target_language = os.path.splitext(file)[0]  # Extract language from the file name
-        target_file_path = os.path.join(input_folder_path, file)
+                            # Open and read the target JSON file
+                            with open(target_file_path, 'r', encoding='utf-8') as target_file:
+                                try:
+                                    target_data = json.load(target_file)
+                                except json.JSONDecodeError:
+                                    print(f"Error: Unable to parse JSON file '{target_file_path}'. Skipping.")
+                                    continue
 
-        # Open and read the target JSON file
-        with open(target_file_path, 'r', encoding='utf-8') as target_file:
-            try:
-                target_data = json.load(target_file)
-            except json.JSONDecodeError:
-                print(f"Error: Unable to parse JSON file '{target_file_path}'. Skipping.")
-                continue
+                                # Create a chat conversation entry for each key-value pair
+                                for key, source_text in source_data.items():
+                                    user_message = {"role": "user", "content": f"Translate the following phrase to {language_mapping.get(target_language, target_language)}: {source_text}"}
+                                    assistant_message = {"role": "assistant", "content": f"Translation: {target_data.get(key, 'N/A')} (Target Language: {language_mapping.get(target_language, target_language)})"}
 
-            # Create a chat conversation entry for each key-value pair
-            for key, source_text in source_data.items():
-                user_message = {"role": "user", "content": f"Translate the following phrase to {language_mapping.get(target_language, target_language)}: {source_text}"}
-                assistant_message = {"role": "assistant", "content": f"Translation: {target_data.get(key, 'N/A')} (Target Language: {language_mapping.get(target_language, target_language)})"}
-
-                jsonl_entry = {"messages": [{"role": "system", "content": "You are a multi-language localizer and translator."}, user_message, assistant_message]}
-                jsonl_entries.append(jsonl_entry)
+                                    jsonl_entry = {"messages": [{"role": "system", "content": "You are a multi-language localizer and translator."}, user_message, assistant_message]}
+                                    jsonl_entries.append(jsonl_entry)
 
     # Write the jsonl entries to a JSON Lines file
     with open(output_jsonl_path, 'w', encoding='utf-8') as jsonl_file:
