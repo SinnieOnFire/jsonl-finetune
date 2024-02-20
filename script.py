@@ -35,37 +35,41 @@ def process_localization_files(input_folder, output_jsonl):
         'fa': 'Persian'
     }
 
-    # Load the source localization file (en.json)
-    source_file_path = os.path.join(input_folder_path, 'en.json')
-    with open(source_file_path, 'r', encoding='utf-8') as source_file:
-        try:
-            source_data = json.load(source_file)
-        except json.JSONDecodeError:
-            print(f"Error: Unable to parse JSON file '{source_file_path}'. Exiting.")
-            return
-
-    # Traverse all files in the input folder and its subfolders
+    # Process each en.json file in the input folder and its subfolders
     for root, _, files in os.walk(input_folder_path):
         for file in files:
-            if file.endswith('.json'):
-                target_language = os.path.splitext(file)[0]  # Extract language from the file name
-                target_file_path = os.path.join(root, file)
+            if file == 'en.json':
+                source_file_path = os.path.join(root, file)
 
-                # Open and read the target JSON file
-                with open(target_file_path, 'r', encoding='utf-8') as target_file:
+                # Load the source localization file (en.json)
+                with open(source_file_path, 'r', encoding='utf-8') as source_file:
                     try:
-                        target_data = json.load(target_file)
+                        source_data = json.load(source_file)
                     except json.JSONDecodeError:
-                        print(f"Error: Unable to parse JSON file '{target_file_path}'. Skipping.")
+                        print(f"Error: Unable to parse JSON file '{source_file_path}'. Skipping.")
                         continue
 
-                    # Create a chat conversation entry for each key-value pair
-                    for key, source_text in source_data.items():
-                        user_message = {"role": "user", "content": f"Translate the following phrase to {language_mapping.get(target_language, target_language)}: {source_text}"}
-                        assistant_message = {"role": "assistant", "content": f"Translation: {target_data.get(key, 'N/A')} (Target Language: {language_mapping.get(target_language, target_language)})"}
+                    # Process each localization file
+                    for target_file in files:
+                        if target_file.endswith('.json') and target_file != 'en.json':
+                            target_language = os.path.splitext(target_file)[0]  # Extract language from the file name
+                            target_file_path = os.path.join(root, target_file)
 
-                        jsonl_entry = {"messages": [{"role": "system", "content": "You are a multi-language localizer and translator for a casual merge game called DesignVille."}, user_message, assistant_message]}
-                        jsonl_entries.append(jsonl_entry)
+                            # Open and read the target JSON file
+                            with open(target_file_path, 'r', encoding='utf-8') as target_file:
+                                try:
+                                    target_data = json.load(target_file)
+                                except json.JSONDecodeError:
+                                    print(f"Error: Unable to parse JSON file '{target_file_path}'. Skipping.")
+                                    continue
+
+                                # Create a chat conversation entry for each key-value pair
+                                for key, source_text in source_data.items():
+                                    user_message = {"role": "user", "content": f"Translate the following phrase to {language_mapping.get(target_language, target_language)}: {source_text}"}
+                                    assistant_message = {"role": "assistant", "content": f"Translation: {target_data.get(key, 'N/A')} (Target Language: {language_mapping.get(target_language, target_language)})"}
+
+                                    jsonl_entry = {"messages": [{"role": "system", "content": "You are a multi-language localizer and translator."}, user_message, assistant_message]}
+                                    jsonl_entries.append(jsonl_entry)
 
     # Write the jsonl entries to a JSON Lines file
     with open(output_jsonl_path, 'w', encoding='utf-8') as jsonl_file:
