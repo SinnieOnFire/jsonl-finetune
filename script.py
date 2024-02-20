@@ -63,10 +63,12 @@ def process_localization_files(input_folder, output_jsonl):
                                     print(f"Error: Unable to parse JSON file '{target_file_path}'. Skipping.")
                                     continue
 
-                                # Create a chat conversation entry for each key-value pair
-                                for key, source_text in source_data.items():
+                            # Create a chat conversation entry for each key-value pair
+                            for key, source_text in source_data.items():
+                                translated_text = target_data.get(key)
+                                if isinstance(translated_text, str) and translated_text.strip() != "":
                                     user_message = {"role": "user", "content": f"Translate the following phrase to {language_mapping.get(target_language, target_language)}: {source_text}"}
-                                    assistant_message = {"role": "assistant", "content": f"Translation: {target_data.get(key, 'N/A')} (Target Language: {language_mapping.get(target_language, target_language)})"}
+                                    assistant_message = {"role": "assistant", "content": f"Translation: {translated_text} (Target Language: {language_mapping.get(target_language, target_language)})"}
 
                                     jsonl_entry = {"messages": [{"role": "system", "content": "You are a multi-language localizer and translator."}, user_message, assistant_message]}
                                     jsonl_entries.append(jsonl_entry)
